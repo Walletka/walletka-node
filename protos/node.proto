@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package node_api_service;
+
+service Node {
+    rpc GetInfo (google.protobuf.Empty) returns (GetInfoResponse);
+    rpc GetChannels (GetChannelsRequest) returns (GetChannelsResponse);
+    rpc OpenChannel (OpenChannelRequest) returns (OpenChannelResponse);
+    rpc CloseChannel (CloseChannelRequest) returns (CloseChannelResponse);
+    rpc SubscribeIncomingTransactions (SubscribeIncomingTransactionsRequest) returns (stream SubscribeIncomingTransactionsResponse);
+    rpc CreateBolt11Invoice (CreateBolt11InvoiceRequest) returns (CreateBolt11InvoiceResponse);
+    rpc PayInvoice (PayInvoiceRequest) returns (PayInvoiceResponse);
+}
+
+message GetInfoResponse {
+    string node_id = 1;
+    bool running = 2;
+    string onchain_address = 3;
+}
+
+message ChannelDetailsMessage {
+    string channel_id = 1;
+    string counterparty_node_id = 2;
+    uint64 channel_value_sats = 3;
+    uint64 unspendable_punishment_reserve = 4;
+    uint32 feerate_sat_per_1000_weight = 5;
+    uint64 balance_msat = 6;
+    uint64 outbound_capacity_msat = 7;
+    uint64 inbound_capacity_msat = 8;
+    uint32 confirmations_required = 9;
+    uint32 confirmations = 10;
+    bool is_ready = 11;
+    bool is_usable = 12;
+    bool is_public = 13;
+    uint64 inbound_htlc_minimum_msat = 14;
+    uint64 inbound_htlc_maximum_msat = 15;
+}
+
+message GetChannelsRequest {
+
+}
+
+message GetChannelsResponse {
+    repeated ChannelDetailsMessage channels = 1;
+}
+
+message OpenChannelRequest {
+    string node_id = 1;
+    string address = 2;
+    uint64 channel_amount_sats = 3;
+    uint64 push_to_counterparty_msat = 4;
+    bool public = 5;
+}
+
+message OpenChannelResponse {
+
+}
+
+message CreateBolt11InvoiceRequest {
+    uint64 amount_msat = 1;
+    uint32 expiry_secs = 2;
+    string description = 3;
+}
+
+message CreateBolt11InvoiceResponse {
+    string invoice = 1;
+}
+
+message PayInvoiceRequest {
+    string bolt11_invoice = 1;
+    uint64 amount_msat = 2;
+}
+
+message PayInvoiceResponse {
+    
+}
+
+message CloseChannelRequest {
+    string channel_id = 1;
+}
+
+message CloseChannelResponse {
+
+}
+
+message SubscribeIncomingTransactionsRequest {
+    // Optional set specific payment hash
+    string payment_hash = 1;
+}
+
+message SubscribeIncomingTransactionsResponse {
+    string payment_hash = 1;
+    uint64 amount_msat = 2;
+}
