@@ -8,7 +8,7 @@
 # Create a stage for building the application.
 
 ARG RUST_VERSION=1.72.0
-ARG APP_NAME=walletka-node
+ARG APP_NAME=walletka-sample-node
 FROM rust:${RUST_VERSION}-slim-bullseye AS build
 ARG APP_NAME
 WORKDIR /app
@@ -20,16 +20,11 @@ WORKDIR /app
 # Leverage a bind mount to the src directory to avoid having to copy the
 # source code into the container. Once built, copy the executable to an
 # output directory before the cache mounted /app/target is unmounted.
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-    <<EOF
-set -e
-cargo build --locked --release
-cp ./target/release/$APP_NAME /bin/server
-EOF
+COPY . .
+RUN apt-get update -y && apt-get install -y libssl-dev pkg-config protobuf-compiler libprotobuf-dev
+RUN cargo build --locked --release
+RUN cp ./target/release/$APP_NAME /bin/server
+
 
 ################################################################################
 # Create a new stage for running the application that contains the minimal
