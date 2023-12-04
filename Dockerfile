@@ -22,7 +22,7 @@ WORKDIR /app
 # output directory before the cache mounted /app/target is unmounted.
 COPY . .
 RUN apt-get update -y && apt-get install -y libssl-dev pkg-config protobuf-compiler libprotobuf-dev
-RUN cargo build --locked --release
+RUN cargo build --release
 RUN cp ./target/release/$APP_NAME /bin/server
 
 
