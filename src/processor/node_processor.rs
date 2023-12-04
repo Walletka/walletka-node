@@ -1,14 +1,21 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, io::Write};
 
 use anyhow::{bail, Error, Result};
 use ldk_node::{
     bip39::Mnemonic,
-    bitcoin::{secp256k1::PublicKey, Address, Network},
+    bitcoin::{
+        secp256k1::{
+            rand::{rngs::OsRng, RngCore},
+            PublicKey,
+        },
+        Address, Network,
+    },
     io::sqlite_store::SqliteStore,
     lightning::ln::{msgs::SocketAddress, ChannelId, PaymentHash},
     lightning_invoice::Bolt11Invoice,
-    Builder, ChannelConfig, ChannelDetails, Node, NodeError, PeerDetails,
+    Builder, ChannelConfig, ChannelDetails, Event, Node, NodeError, PeerDetails,
 };
+use prost::bytes::Buf;
 use tokio::sync::Mutex;
 
 use super::node_events::NodeEvents;
@@ -19,14 +26,18 @@ pub struct NodeProcessor {
 }
 
 impl NodeProcessor {
-    pub fn new(data_dir: String, esplora_server: String, mnemonic: Option<Mnemonic>) -> Result<Self, Error> {
+    pub fn new(
+        data_dir: String,
+        esplora_server: String,
+        mnemonic: Option<Mnemonic>,
+    ) -> Result<Self, Error> {
         let mut builder = Builder::new();
         builder.set_network(Network::Regtest);
         builder.set_storage_dir_path(format!("{}/ldk_node", data_dir).to_string());
         builder.set_log_dir_path(format!("{}/ldk_node", data_dir).to_string());
         builder.set_log_level(ldk_node::LogLevel::Debug);
         builder.set_listening_addresses(vec![SocketAddress::from_str("0.0.0.0:9876").unwrap()])?;
-        if mnemonic.is_some(){
+        if mnemonic.is_some() {
             builder.set_entropy_bip39_mnemonic(mnemonic.unwrap(), None);
         }
         builder.set_esplora_server(esplora_server);
@@ -70,12 +81,18 @@ impl NodeProcessor {
     pub fn open_channel(
         &self,
         node_id: PublicKey,
-        address: SocketAddress,
+        address: Option<SocketAddress>,
         channel_amount_sats: u64,
         push_to_counterparty_msat: Option<u64>,
         public: bool,
     ) -> Result<()> {
         let channel_config = Arc::new(ChannelConfig::new());
+        let address = if address.is_none() {
+            let peer = self.get_peers().into_iter().find(|p| p.node_id == node_id).expect("Peer is not connected, provide address!");
+            peer.address
+        } else {
+            address.unwrap()
+        };
 
         Ok(self.node.connect_open_channel(
             node_id,
@@ -142,6 +159,22 @@ impl NodeProcessor {
         }
     }
 
+    pub fn send_keysend_payment(
+        &self,
+        destination: PublicKey,
+        amount_msat: u64,
+    ) -> Result<PaymentHash> {
+        match self
+            .node
+            .send_spontaneous_payment_probes(amount_msat, destination)
+        {
+            Ok(_) => Ok(self
+                .node
+                .send_spontaneous_payment(amount_msat, destination)?),
+            Err(err) => Err(err.into()),
+        }
+    }
+
     fn subscribe_events(&self) {
         let node = self.node.clone();
         let events = self.events.clone();
@@ -158,5 +191,25 @@ impl NodeProcessor {
                 }
             }
         });
+    }
+
+    pub async fn trigger_payment_event(&self, payment_hash: Option<String>) {
+        let events = self.events.lock().await;
+        let fake_hash = if payment_hash.is_none() {
+            let mut fake_hash = [0; 32];
+            OsRng.fill_bytes(&mut fake_hash);
+            PaymentHash(fake_hash)
+        } else {
+            let hash = ldk_node::bitcoin::hashes::sha256::Hash::from_str(payment_hash.unwrap().as_str()).unwrap();
+            let mut fake_hash = [0; 32];
+            fake_hash.copy_from_slice(hash.to_vec().as_slice());
+            PaymentHash(fake_hash)
+        };
+        events
+            .notify(Event::PaymentReceived {
+                payment_hash: fake_hash,
+                amount_msat: 350000,
+            })
+            .await;
     }
 }

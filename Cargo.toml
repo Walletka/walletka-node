@@ -19,6 +19,7 @@ tonic-web = "0.10.2"
 dotenv = "0.15.0"
 tokio-stream = "0.1.14"
 uuid = { version = "1.6.1", features = [ "v4", "fast-rng", "macro-diagnostics" ] }
+os-rng = "0.0.0"
 
 [build-dependencies]
 tonic-build = "0.10.2"

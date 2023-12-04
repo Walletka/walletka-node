@@ -12,6 +12,8 @@ service Node {
     rpc SubscribeIncomingTransactions (SubscribeIncomingTransactionsRequest) returns (stream SubscribeIncomingTransactionsResponse);
     rpc CreateBolt11Invoice (CreateBolt11InvoiceRequest) returns (CreateBolt11InvoiceResponse);
     rpc PayInvoice (PayInvoiceRequest) returns (PayInvoiceResponse);
+    rpc TriggerPaymentEvent (TriggerPaymentEventRequest) returns (google.protobuf.Empty);
+    rpc SendKeysendPayment (SendKeysendPaymentRequest) returns (SendKeysendPaymentResponse);
 }
 
 message GetInfoResponse {
@@ -91,6 +93,20 @@ message SubscribeIncomingTransactionsRequest {
 }
 
 message SubscribeIncomingTransactionsResponse {
+    string payment_hash = 1;
+    uint64 amount_msat = 2;
+}
+
+message SendKeysendPaymentRequest {
+    string destination = 1;
+    uint64 amount = 2;
+}
+
+message SendKeysendPaymentResponse {
+    string payment_hash = 1;
+}
+
+message TriggerPaymentEventRequest {
     string payment_hash = 1;
     uint64 amount_msat = 2;
 }

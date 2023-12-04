@@ -1,10 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
 use ldk_node::{
-    bitcoin::secp256k1::PublicKey,
-    lightning::ln::msgs::SocketAddress,
-    lightning_invoice::Bolt11Invoice,
-    Event,
+    bitcoin::secp256k1::PublicKey, lightning::ln::msgs::SocketAddress,
+    lightning_invoice::Bolt11Invoice, Event,
 };
 use node_api::*;
 use tokio_stream::wrappers::ReceiverStream;
@@ -67,9 +65,15 @@ impl node_server::Node for NodeService {
     ) -> Result<Response<OpenChannelResponse>, Status> {
         let r: OpenChannelRequest = request.into_inner();
 
+        let address = if r.address.len() > 1 {
+            Some(SocketAddress::from_str(&r.address).unwrap())
+        } else {
+            None
+        };
+
         match self.node.open_channel(
             PublicKey::from_str(&r.node_id).unwrap(),
-            SocketAddress::from_str(&r.address).unwrap(),
+            address,
             r.channel_amount_sats,
             Some(r.push_to_counterparty_msat),
             r.public,
@@ -135,7 +139,7 @@ impl node_server::Node for NodeService {
                     };
                 }
             }
-            
+
             println!("Unsubscribing");
             node_events.lock().await.unsubscribe(&ns)
         });
@@ -201,5 +205,33 @@ impl node_server::Node for NodeService {
         };
 
         Ok(Response::new(PayInvoiceResponse {}))
+    }
+
+    async fn trigger_payment_event(&self, request: Request<TriggerPaymentEventRequest>) -> Result<Response<()>, Status> {
+        let r = request.into_inner();
+        let payment_hash = if r.payment_hash.len() > 1 {
+            Some(r.payment_hash)
+        } else {
+            None
+        };
+
+        self.node.trigger_payment_event(payment_hash).await;
+        Ok(Response::new(()))
+    }
+
+    async fn send_keysend_payment(
+        &self,
+        request: Request<SendKeysendPaymentRequest>,
+    ) -> Result<Response<SendKeysendPaymentResponse>, Status> {
+        let r = request.into_inner();
+        match self
+            .node
+            .send_keysend_payment(PublicKey::from_str(&r.destination).unwrap(), r.amount)
+        {
+            Ok(payment_hash) => Ok(Response::new(SendKeysendPaymentResponse {
+                payment_hash: payment_hash.to_string(),
+            })),
+            Err(err) => Err(Status::new(tonic::Code::Unknown, err.to_string())),
+        }
     }
 }
