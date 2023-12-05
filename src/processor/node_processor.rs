@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, io::Write};
+use std::{str::FromStr, sync::Arc};
 
 use anyhow::{bail, Error, Result};
 use ldk_node::{
@@ -15,7 +15,7 @@ use ldk_node::{
     lightning_invoice::Bolt11Invoice,
     Builder, ChannelConfig, ChannelDetails, Event, Node, NodeError, PeerDetails,
 };
-use prost::bytes::Buf;
+use log::info;
 use tokio::sync::Mutex;
 
 use super::node_events::NodeEvents;
@@ -58,6 +58,7 @@ impl NodeProcessor {
 
     pub fn start(&self) -> Result<(), Error> {
         self.subscribe_events();
+        info!("Starting lightning node");
         Ok(self.node.start()?)
     }
 
@@ -88,7 +89,11 @@ impl NodeProcessor {
     ) -> Result<()> {
         let channel_config = Arc::new(ChannelConfig::new());
         let address = if address.is_none() {
-            let peer = self.get_peers().into_iter().find(|p| p.node_id == node_id).expect("Peer is not connected, provide address!");
+            let peer = self
+                .get_peers()
+                .into_iter()
+                .find(|p| p.node_id == node_id)
+                .expect("Peer is not connected, provide address!");
             peer.address
         } else {
             address.unwrap()
@@ -200,7 +205,9 @@ impl NodeProcessor {
             OsRng.fill_bytes(&mut fake_hash);
             PaymentHash(fake_hash)
         } else {
-            let hash = ldk_node::bitcoin::hashes::sha256::Hash::from_str(payment_hash.unwrap().as_str()).unwrap();
+            let hash =
+                ldk_node::bitcoin::hashes::sha256::Hash::from_str(payment_hash.unwrap().as_str())
+                    .unwrap();
             let mut fake_hash = [0; 32];
             fake_hash.copy_from_slice(hash.to_vec().as_slice());
             PaymentHash(fake_hash)
