@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use api::{node_api::node_api::node_server::NodeServer, node_api::NodeService};
 use dotenv::dotenv;
@@ -32,17 +32,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?);
     node_processor.start()?;
 
-    let address = "[::1]:8080".parse()?;
-    let voting_service = NodeServer::new(NodeService {
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let node_service = NodeServer::new(NodeService {
         node: node_processor.clone(),
     });
 
-    info!("Starting grpc server at :8080");
+    info!("Starting grpc server at :3000");
 
     Server::builder()
         .accept_http1(true)
-        .add_service(tonic_web::enable(voting_service))
-        .serve(address)
+        .add_service(tonic_web::enable(node_service))
+        .serve(addr)
         .await?;
     Ok(())
 }
