@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{bail, Error, Result};
 use ldk_node::{
@@ -16,7 +16,7 @@ use ldk_node::{
     Builder, ChannelConfig, ChannelDetails, Event, Node, NodeError, PeerDetails,
 };
 use log::info;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::sleep};
 
 use super::node_events::NodeEvents;
 
@@ -192,7 +192,9 @@ impl NodeProcessor {
                         node.event_handled();
                         events.notify(event).await;
                     }
-                    None => {}
+                    None => {
+                        sleep(Duration::from_millis(100)).await;
+                    }
                 }
             }
         });
