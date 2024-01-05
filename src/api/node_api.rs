@@ -2,10 +2,9 @@ use std::{str::FromStr, sync::Arc};
 
 use ldk_node::{
     bitcoin::secp256k1::PublicKey, lightning::ln::msgs::SocketAddress,
-    lightning_invoice::Bolt11Invoice, Event,
+    lightning_invoice::Bolt11Invoice,
 };
 use node_api::*;
-use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
 use crate::processor::node_processor::NodeProcessor;
@@ -83,70 +82,6 @@ impl node_server::Node for NodeService {
         }
     }
 
-    type SubscribeIncomingTransactionsStream =
-        ReceiverStream<Result<SubscribeIncomingTransactionsResponse, Status>>;
-
-    async fn subscribe_incoming_transactions(
-        &self,
-        request: Request<SubscribeIncomingTransactionsRequest>,
-    ) -> Result<Response<Self::SubscribeIncomingTransactionsStream>, Status> {
-        let request = request.into_inner();
-        let node_events = self.node.events.clone();
-        let (s, r) =
-            tokio::sync::mpsc::channel::<Result<SubscribeIncomingTransactionsResponse, Status>>(1);
-
-        tokio::spawn(async move {
-            let (ns, mut nr) = tokio::sync::mpsc::channel::<Event>(1);
-
-            node_events.lock().await.subscribe(ns.clone());
-            println!("Subscribed to node events");
-
-            loop {
-                if let Some(event) = nr.recv().await {
-                    match event {
-                        Event::PaymentReceived {
-                            payment_hash,
-                            amount_msat,
-                        } => {
-                            if request.payment_hash.len() > 0
-                                && request.payment_hash == payment_hash.to_string()
-                            {
-                                match s
-                                    .send(Ok(SubscribeIncomingTransactionsResponse {
-                                        payment_hash: payment_hash.to_string(),
-                                        amount_msat,
-                                    }))
-                                    .await
-                                {
-                                    Ok(_) => println!("Notification sent!"),
-                                    Err(_) => break,
-                                }
-                                break;
-                            } else {
-                                match s
-                                    .send(Ok(SubscribeIncomingTransactionsResponse {
-                                        payment_hash: payment_hash.to_string(),
-                                        amount_msat,
-                                    }))
-                                    .await
-                                {
-                                    Ok(_) => println!("Notification sent!"),
-                                    Err(_) => break,
-                                }
-                            }
-                        }
-                        _ => {}
-                    };
-                }
-            }
-
-            println!("Unsubscribing");
-            node_events.lock().await.unsubscribe(&ns)
-        });
-
-        Ok(Response::new(ReceiverStream::new(r)))
-    }
-
     async fn close_channel(
         &self,
         request: Request<CloseChannelRequest>,
@@ -207,7 +142,10 @@ impl node_server::Node for NodeService {
         Ok(Response::new(PayInvoiceResponse {}))
     }
 
-    async fn trigger_payment_event(&self, request: Request<TriggerPaymentEventRequest>) -> Result<Response<()>, Status> {
+    async fn trigger_payment_event(
+        &self,
+        request: Request<TriggerPaymentEventRequest>,
+    ) -> Result<Response<()>, Status> {
         let r = request.into_inner();
         let payment_hash = if r.payment_hash.len() > 1 {
             Some(r.payment_hash)

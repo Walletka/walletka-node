@@ -4,21 +4,22 @@ use anyhow::{bail, Error, Result};
 use ldk_node::{
     bip39::Mnemonic,
     bitcoin::{
+        hashes::Hash,
         secp256k1::{
             rand::{rngs::OsRng, RngCore},
             PublicKey,
         },
-        Address, Network,
+        Address,
     },
     io::sqlite_store::SqliteStore,
     lightning::ln::{msgs::SocketAddress, ChannelId, PaymentHash},
     lightning_invoice::Bolt11Invoice,
-    Builder, ChannelConfig, ChannelDetails, Event, Node, NodeError, PeerDetails,
+    Builder, ChannelConfig, ChannelDetails, Event, Network, Node, NodeError, PeerDetails,
 };
 use log::info;
 use tokio::{sync::Mutex, time::sleep};
 
-use super::node_events::NodeEvents;
+use super::node_events::{NodeEvents, RabbitMqConfig};
 
 pub struct NodeProcessor {
     node: Arc<Node<SqliteStore>>,
@@ -26,10 +27,11 @@ pub struct NodeProcessor {
 }
 
 impl NodeProcessor {
-    pub fn new(
+    pub async fn new(
         data_dir: String,
         esplora_server: String,
         mnemonic: Option<Mnemonic>,
+        rabbitmq_config: Option<RabbitMqConfig>,
     ) -> Result<Self, Error> {
         let mut builder = Builder::new();
         builder.set_network(Network::Regtest);
@@ -47,7 +49,7 @@ impl NodeProcessor {
         //);
 
         let node = Arc::new(builder.build()?);
-        let events = Arc::new(Mutex::new(NodeEvents::default()));
+        let events = Arc::new(Mutex::new(NodeEvents::new(rabbitmq_config).await));
 
         Ok(Self { node, events })
     }
@@ -211,7 +213,7 @@ impl NodeProcessor {
                 ldk_node::bitcoin::hashes::sha256::Hash::from_str(payment_hash.unwrap().as_str())
                     .unwrap();
             let mut fake_hash = [0; 32];
-            fake_hash.copy_from_slice(hash.to_vec().as_slice());
+            fake_hash.copy_from_slice(hash.as_byte_array().to_vec().as_slice());
             PaymentHash(fake_hash)
         };
         events

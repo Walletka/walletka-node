@@ -9,7 +9,6 @@ service Node {
     rpc GetChannels (GetChannelsRequest) returns (GetChannelsResponse);
     rpc OpenChannel (OpenChannelRequest) returns (OpenChannelResponse);
     rpc CloseChannel (CloseChannelRequest) returns (CloseChannelResponse);
-    rpc SubscribeIncomingTransactions (SubscribeIncomingTransactionsRequest) returns (stream SubscribeIncomingTransactionsResponse);
     rpc CreateBolt11Invoice (CreateBolt11InvoiceRequest) returns (CreateBolt11InvoiceResponse);
     rpc PayInvoice (PayInvoiceRequest) returns (PayInvoiceResponse);
     rpc TriggerPaymentEvent (TriggerPaymentEventRequest) returns (google.protobuf.Empty);
@@ -85,16 +84,6 @@ message CloseChannelRequest {
 
 message CloseChannelResponse {
 
-}
-
-message SubscribeIncomingTransactionsRequest {
-    // Optional set specific payment hash
-    string payment_hash = 1;
-}
-
-message SubscribeIncomingTransactionsResponse {
-    string payment_hash = 1;
-    uint64 amount_msat = 2;
 }
 
 message SendKeysendPaymentRequest {
