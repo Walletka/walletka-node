@@ -150,17 +150,12 @@ impl NodeProcessor {
         amount_msat: Option<u64>,
     ) -> Result<PaymentHash> {
         match amount_msat {
-            Some(amount_msat) => {
-                match self
-                    .node
-                    .send_payment_probes_using_amount(invoice, amount_msat)
-                {
-                    Ok(_) => Ok(self.node.send_payment_using_amount(invoice, amount_msat)?),
-                    Err(err) => Err(err.into()),
-                }
-            }
-            None => match self.node.send_payment_probes(invoice) {
-                Ok(_) => Ok(self.node.send_payment(invoice)?),
+            Some(amount_msat) => match self.node.send_payment_using_amount(invoice, amount_msat) {
+                Ok(res) => Ok(res),
+                Err(err) => Err(err.into()),
+            },
+            None => match self.node.send_payment(invoice) {
+                Ok(res) => Ok(res),
                 Err(err) => Err(err.into()),
             },
         }
