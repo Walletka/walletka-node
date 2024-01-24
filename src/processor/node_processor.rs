@@ -50,7 +50,6 @@ impl NodeProcessor {
 
         let node = Arc::new(builder.build()?);
         let events = Arc::new(Mutex::new(NodeEvents::new(rabbitmq_config).await));
-
         Ok(Self { node, events })
     }
 
